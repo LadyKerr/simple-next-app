@@ -1,105 +1,72 @@
-# Sample workflow for building and deploying a Next.js site to GitHub Pages
-#
-# To get started with Next.js see: https://nextjs.org/docs/getting-started
-#
-name: Deploy Next.js site to Pages
-
-on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow one concurrent deployment
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
-jobs:
-  # Build job
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Detect package manager
-        id: detect-package-manager
-        run: |
-          if [ -f "${{ github.workspace }}/yarn.lock" ]; then
-            echo "::set-output name=manager::yarn"
-            echo "::set-output name=command::install"
-            echo "::set-output name=runner::yarn"
-            exit 0
-          elif [ -f "${{ github.workspace }}/package.json" ]; then
-            echo "::set-output name=manager::npm"
-            echo "::set-output name=command::ci"
-            echo "::set-output name=runner::npx --no-install"
-            exit 0
-          else
-            echo "Unable to determine packager manager"
-            exit 1
-          fi
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
-          cache: ${{ steps.detect-package-manager.outputs.manager }}
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v1
-        with:
-          # Automatically inject basePath in your Next.js configuration file and disable
-          # server side image optimization (https://nextjs.org/docs/api-reference/next/image#unoptimized).
-          #
-          # You may remove this line if you want to manage the configuration yourself.
-          static_site_generator: next
-      - name: Restore cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            .next/cache
-          # Generate a new cache whenever packages or source files change.
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
-          # If source files changed but packages didn't, rebuild from a prior cache.
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
-      - name: Install dependencies
-        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
-      - name: Build with Next.js
-        run: ${{ steps.detect-package-manager.outputs.runner }} next build
-      - name: Static HTML export with Next.js
-        run: ${{ steps.detect-package-manager.outputs.runner }} next export
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: ./out
-
-  # Deployment job
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v1
-      - name: "Sending SMS Notification"
-        uses: twilio-labs/actions-sms@v1
-        with:
-          fromPhoneNumber: ${{ secrets.TWILIO_PHONE_NUMBER }}
-          toPhoneNumber: ${{ secrets.MY_PHONE_NUMBER }}
-          message: "Hello from Twilio"
-        env:
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_API_KEY: ${{ secrets.TWILIO_API_KEY }}
-          TWILIO_API_SECRET: ${{ secrets.TWILIO_API_SECRET }}
+# importing everything we need
+import cv2
+import csv
+# declaring a static variable
+class spots:
+ loc = 0
+# function to determine if a spot is free/occupied
+# params: image source, individual spot coordinates
+def drawRectangle(img, a, b, c, d):
+ # cutting the image based on the coodrinates
+ sub_img = img[b:b + d, a:a + c]
+ # extracting the edges
+ edges = cv2.Canny(sub_img, lowThreshold, highThreshold)
+ # counting the white pixels
+ pix = cv2.countNonZero(edges)
+ # testing if the pixels number is in the given range
+ if pix in range(min, max):
+ # drawing a green rectangle on the source image using the given coordinates
+ # and increasing the number of available spots
+ cv2.rectangle(img, (a, b), (a + c, b + d), (0, 255, 0), 3)
+ spots.loc += 1
+ else:
+ # drawing a red rectangle on the source image if the pixels number is not in the 
+range
+ cv2.rectangle(img, (a, b), (a + c, b + d), (0, 0, 255), 3)
+# empty callback function for creating trackar
+def callback(foo):
+ pass
+# getting the spots coordinates into a list
+with open('data/rois.csv', 'r', newline='') as inf:
+ csvr = csv.reader(inf)
+ rois = list(csvr)
+# converting the values to integer
+rois = [[int(float(j)) for j in i] for i in rois]
+# creating the parameters window with trackbars
+cv2.namedWindow('parameters')
+cv2.createTrackbar('Threshold1', 'parameters', 186, 700, callback)
+cv2.createTrackbar('Threshold2', 'parameters', 122, 700, callback)
+cv2.createTrackbar('Min pixels', 'parameters', 100, 1500, callback)
+cv2.createTrackbar('Max pixels', 'parameters', 323, 1500, callback)
+# select the video source; 0 - integrated webcam; 1 - external webcam;
+VIDEO_SOURCE = 
+'C:\\Users\\Sajith\\Documents\\smart_parking\\smart_parking\\1_27_08_19.mp4'
+cap = cv2.VideoCapture(VIDEO_SOURCE)
+# start the live feed
+while True:
+ # set the number of spots to 0
+ spots.loc = 0
+ # set two frames for the feed
+ ret, frame = cap.read()
+ ret2, frame2 = cap.read()
+ # define the range of pixels and the thresholds for Canny function
+ min = cv2.getTrackbarPos('Min pixels', 'parameters')
+ max = cv2.getTrackbarPos('Max pixels', 'parameters')
+ lowThreshold = cv2.getTrackbarPos('Threshold1', 'parameters')
+ highThreshold = cv2.getTrackbarPos('Threshold2', 'parameters')
+ # apply the function for every list of coordinates
+ for i in range(len(rois)):
+ drawRectangle(frame, rois[i][0], rois[i][1], rois[i][2], rois[i][3])
+ # adding the number of available spots on the shown image
+ font = cv2.FONT_HERSHEY_SIMPLEX
+ cv2.putText(frame, 'Available spots: ' + str(spots.loc), (10, 30), font, 1, (0, 255, 0), 3)
+ cv2.imshow('frame', frame)
+ # displaying the image with Canny function applied for reference
+ canny = cv2.Canny(frame2, lowThreshold, highThreshold)
+ cv2.imshow('canny', canny)
+ # listen for 'Q' key to stop the stream
+ if cv2.waitKey(1) & 0xFF == ord('q'):
+ break
+# when everything is done, release the capture
+cap.release()
+cv2.destroyAllWindows()
